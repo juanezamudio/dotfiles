@@ -1,0 +1,14 @@
+# Secrets - never commit these
+*.secret
+*.secrets
+*_secret
+*_secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+
+# Editor backups
+*~
+*.swp
