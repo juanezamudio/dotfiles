@@ -1,5 +1,25 @@
 # Custom shell functions
 
+# Show all custom aliases and functions
+myhelp() {
+  echo "\033[1;36m═══ Custom Commands ═══\033[0m\n"
+
+  echo "\033[1;33mAliases & Functions (~/.zsh/aliases.zsh):\033[0m"
+  awk '/^#/ {desc=substr($0,3); next} /^alias / {name=$2; gsub(/=.*/,"",name); printf "  \033[32m%-12s\033[0m %s\n", name, desc; desc=""} /^[a-z0-9_]+\(\)/ {name=$1; gsub(/\(\).*/,"",name); printf "  \033[32m%-12s\033[0m %s\n", name, desc; desc=""}' ~/.zsh/aliases.zsh 2>/dev/null
+
+  echo "\n\033[1;33mFunctions (~/.zsh/functions.zsh):\033[0m"
+  awk '/^#/ {desc=substr($0,3); next} /^[a-z0-9_]+\(\)/ {name=$1; gsub(/\(\).*/,"",name); if (name != "myhelp") printf "  \033[32m%-12s\033[0m %s\n", name, desc; desc=""}' ~/.zsh/functions.zsh 2>/dev/null
+}
+
+# Quick git add, commit, push for dotfiles from anywhere
+dotfiles() {
+  local msg="${1:-update dotfiles}"
+  git -C ~/dotfiles add -A && \
+  git -C ~/dotfiles commit -m "$msg" && \
+  git -C ~/dotfiles push && \
+  echo "✓ Dotfiles updated: $msg"
+}
+
 # Copy file to clipboard for pasting into apps
 cpfile() {
   local file="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
