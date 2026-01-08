@@ -53,6 +53,13 @@ md2pdf() {
     -V fontsize=11pt && echo "Created: $output"
 }
 
+# Convert markdown to Word doc (for Google Docs import)
+md2docx() {
+  local input="$1"
+  local output="${2:-${input%.md}.docx}"
+  pandoc "$input" -o "$output" && echo "Created: $output"
+}
+
 # Convert markdown to HTML (styled)
 md2html() {
   local input="$1"

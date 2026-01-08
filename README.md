@@ -14,9 +14,10 @@ My personal shell configuration.
 
 | Function | Description |
 |----------|-------------|
-| `cpfile` | Copy file to clipboard (for pasting into apps) |
+| `cpfile` | Copy file to clipboard (works with Universal Clipboard) |
 | `cptext` | Copy file contents to clipboard |
 | `md2pdf` | Convert markdown to PDF |
+| `md2docx` | Convert markdown to Word doc (for Google Docs) |
 | `md2html` | Convert markdown to styled HTML |
 | `html2pdf` | Convert HTML to PDF (via Chrome) |
 | `pdf2text` | Extract text from PDF |
