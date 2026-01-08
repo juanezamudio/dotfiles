@@ -20,10 +20,21 @@ dotfiles() {
   echo "✓ Dotfiles updated: $msg"
 }
 
-# Copy file to clipboard for pasting into apps
+# Copy file to clipboard for pasting into apps (works with Universal Clipboard)
 cpfile() {
   local file="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
-  osascript -e "set the clipboard to POSIX file \"$file\""
+  osascript <<EOF
+tell application "Finder"
+  select (POSIX file "$file" as alias)
+  activate
+end tell
+delay 0.3
+tell application "System Events"
+  keystroke "c" using command down
+  delay 0.1
+  keystroke "w" using command down
+end tell
+EOF
   echo "Copied: $file"
 }
 
