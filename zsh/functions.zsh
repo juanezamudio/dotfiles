@@ -60,12 +60,12 @@ md2docx() {
   pandoc "$input" -o "$output" && echo "Created: $output"
 }
 
-# Upload files to Google Drive via rclone
 # Usage: gdupload <remote> <dest-folder> [pattern]
 # Examples:
-#   gdupload "Vertex Collective" documents "*.docx"  - upload all .docx files from cwd
-#   gdupload "Vertex Collective" backup              - upload all files from cwd
-#   gdupload "Vertex Collective" docs "report.pdf"   - upload single file
+#   gdupload vertexcollective documents "*.docx"  - upload all .docx files from cwd
+#   gdupload vertexcollective backup              - upload all files from cwd
+#   gdupload vertexcollective docs "report.pdf"   - upload single file
+# Upload files to Google Drive via rclone
 gdupload() {
   local remote="$1"
   local dest="$2"
@@ -73,7 +73,7 @@ gdupload() {
 
   if [[ -z "$remote" || -z "$dest" ]]; then
     echo "Usage: gdupload <remote> <dest-folder> [pattern]"
-    echo "Example: gdupload \"Vertex Collective\" documents \"*.docx\""
+    echo "Example: gdupload vertexcollective documents \"*.docx\""
     return 1
   fi
 
