@@ -60,6 +60,26 @@ md2docx() {
   pandoc "$input" -o "$output" && echo "Created: $output"
 }
 
+# Upload files to Google Drive via rclone
+# Usage: gdupload <remote> <dest-folder> [pattern]
+# Examples:
+#   gdupload "Vertex Collective" documents "*.docx"  - upload all .docx files from cwd
+#   gdupload "Vertex Collective" backup              - upload all files from cwd
+#   gdupload "Vertex Collective" docs "report.pdf"   - upload single file
+gdupload() {
+  local remote="$1"
+  local dest="$2"
+  local pattern="${3:-*}"
+
+  if [[ -z "$remote" || -z "$dest" ]]; then
+    echo "Usage: gdupload <remote> <dest-folder> [pattern]"
+    echo "Example: gdupload \"Vertex Collective\" documents \"*.docx\""
+    return 1
+  fi
+
+  rclone copy "$(pwd)" "$remote:/$dest" --include "$pattern" && echo "Uploaded to $remote:/$dest (pattern: $pattern)"
+}
+
 # Convert markdown to HTML (styled)
 md2html() {
   local input="$1"
