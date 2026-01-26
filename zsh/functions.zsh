@@ -44,13 +44,26 @@ cptext() {
   echo "Copied contents of: $1"
 }
 
-# Convert markdown to PDF (direct via pandoc)
+# Convert markdown to PDF (auto-detects emojis)
 md2pdf() {
   local input="$1"
   local output="${2:-${input%.md}.pdf}"
-  pandoc "$input" -o "$output" \
-    -V geometry:margin=0.75in \
-    -V fontsize=11pt && echo "Created: $output"
+
+  # Check if file contains emojis
+  if grep -qP '[\x{1F300}-\x{1F9FF}\x{2600}-\x{26FF}\x{2700}-\x{27BF}]' "$input" 2>/dev/null || \
+     grep -q '[🚨📁📊🎯⚠️✅❌🔄📦🔐🔍📋💾📌⏳]' "$input"; then
+    # File has emojis - use HTML→PDF path (Chrome handles emojis)
+    echo "Emojis detected - using HTML→PDF conversion..."
+    local temphtml="${input%.md}.temp.html"
+    md2html "$input" "$temphtml" && \
+    html2pdf "$temphtml" "$output" && \
+    rm -f "$temphtml"
+  else
+    # No emojis - use LaTeX path (better typography)
+    pandoc "$input" -o "$output" \
+      -V geometry:margin=0.75in \
+      -V fontsize=11pt && echo "Created: $output"
+  fi
 }
 
 # Convert markdown to Word doc (for Google Docs import)
