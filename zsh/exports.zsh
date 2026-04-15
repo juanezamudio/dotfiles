@@ -20,3 +20,6 @@ export PATH="/Users/jzamudio/.codeium/windsurf/bin:$PATH"
 
 # Boot.dev
 export PATH="$PATH:/Users/jzamudio/Desktop/boot-dev/worldbanc/private/bin"
+
+# Claude Code CLI
+export CLAUDE_CODE_OAUTH_TOKEN=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
