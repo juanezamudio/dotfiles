@@ -105,6 +105,17 @@ md2docx() {
   pandoc "$input" -o "$output" && echo "Created: $output"
 }
 
+# Convert Word doc to PDF (via LibreOffice headless)
+docx2pdf() {
+  local input="$1"
+  local output="${2:-${input%.docx}.pdf}"
+  local outdir="$(dirname "$output")"
+  soffice --headless --convert-to pdf --outdir "$outdir" "$input" >/dev/null || return 1
+  local generated="$outdir/$(basename "${input%.docx}").pdf"
+  [[ "$generated" != "$output" ]] && mv "$generated" "$output"
+  echo "Created: $output"
+}
+
 # Convert markdown to HTML (styled)
 md2html() {
   local input="$1"
