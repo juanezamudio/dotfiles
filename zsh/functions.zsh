@@ -82,7 +82,10 @@ mdcopy() {
     echo "usage: mdcopy <markdown-file>" >&2
     return 1
   fi
-  pandoc -f markdown -t html "$1" \
+  # -s emits a standalone HTML doc with <meta charset="UTF-8">, which textutil needs
+  # in order to read pandoc's output as UTF-8 instead of MacRoman (otherwise smart
+  # quotes / em dashes / accented chars get mangled into "â€™" mojibake).
+  pandoc -s -f markdown -t html "$1" \
     | textutil -stdin -stdout -format html -convert rtf \
     | pbcopy
   echo "Copied rich text from: $1"
