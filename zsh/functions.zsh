@@ -74,6 +74,20 @@ cptext() {
   echo "Copied contents of: $1"
 }
 
+# Copy a Markdown file to clipboard as rich text (Markdown -> HTML -> RTF).
+# Pasting into Google Docs / Notion / Gmail preserves bold, italic, links, lists, headings.
+# Smartlead-style {{#if first_name}}...{{/if}} blocks survive untouched.
+mdcopy() {
+  if [[ -z "$1" || ! -f "$1" ]]; then
+    echo "usage: mdcopy <markdown-file>" >&2
+    return 1
+  fi
+  pandoc -f markdown -t html "$1" \
+    | textutil -stdin -stdout -format html -convert rtf \
+    | pbcopy
+  echo "Copied rich text from: $1"
+}
+
 # === Document Tools ===
 
 # Convert markdown to PDF (auto-detects emojis)
@@ -92,9 +106,48 @@ md2pdf() {
     rm -f "$temphtml"
   else
     # No emojis - use LaTeX path (better typography)
+    # xelatex handles Unicode robustly; listings package wraps long code lines
+    local headerfile
+    headerfile=$(mktemp -t md2pdf-header.XXXXXX.tex)
+    cat > "$headerfile" <<'LATEXHEADER'
+\lstset{
+  breaklines=true,
+  breakatwhitespace=false,
+  basicstyle=\ttfamily\footnotesize,
+  columns=fixed,
+  keepspaces=true,
+  frame=lines,
+  framesep=4pt,
+  xleftmargin=0pt,
+  xrightmargin=0pt,
+  aboveskip=12pt,
+  belowskip=12pt,
+  postbreak=\mbox{\hspace{2em}}
+}
+% Make table cells wrap when content is long
+\usepackage{array}
+\usepackage{ragged2e}
+\renewcommand{\arraystretch}{1.15}
+% Make level-4 (####) and level-5 (#####) markdown headings render as
+% block headings instead of LaTeX's default run-in \paragraph / \subparagraph.
+\usepackage{titlesec}
+\titleformat{\paragraph}[block]{\normalfont\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\paragraph}{0pt}{14pt}{6pt}
+\titleformat{\subparagraph}[block]{\normalfont\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\subparagraph}{0pt}{12pt}{4pt}
+LATEXHEADER
     pandoc "$input" -o "$output" \
+      --pdf-engine=xelatex \
+      --listings \
       -V geometry:margin=0.75in \
-      -V fontsize=11pt && echo "Created: $output"
+      -V fontsize=11pt \
+      -V monofont="Menlo" \
+      -V colorlinks=true \
+      -V linkcolor=blue \
+      -V urlcolor=blue \
+      -H "$headerfile" \
+      && echo "Created: $output"
+    rm -f "$headerfile"
   fi
 }
 
