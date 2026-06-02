@@ -96,26 +96,31 @@ mdcopy() {
 # Convert markdown to PDF (auto-detects emojis)
 #
 # Profiles:
-#   md2pdf <file.md> [out.pdf]          prose profile (default) - Plus Jakarta Sans,
-#                                        the marketing/proposal look. Unchanged.
-#   md2pdf --tech <file.md> [out.pdf]   technical profile - Charter serif body +
-#                                        Menlo mono, denser, no centered/two-column
-#                                        filters. Better for dev briefs, specs, docs
-#                                        with lots of tables and code.
+#   md2pdf <file.md> [out.pdf]          prose profile (default) - LaTeX/xelatex,
+#                                        Plus Jakarta Sans. The marketing/proposal
+#                                        look. Unchanged.
+#   md2pdf --tech <file.md> [out.pdf]   technical profile - Typst engine. Far better
+#                                        table layout + automatic glyph fallback
+#                                        (arrows etc. just work). Best for dev briefs,
+#                                        specs, anything table/code heavy.
+#   md2pdf --tex  <file.md> [out.pdf]   the old LaTeX technical path (Charter serif +
+#                                        Menlo). Kept as a fallback if Typst output
+#                                        ever isn't what you want.
 md2pdf() {
   local profile=prose
-  if [[ "$1" == "--tech" || "$1" == "-t" ]]; then
-    profile=tech; shift
-  fi
+  case "$1" in
+    --tech|-t) profile=tech; shift ;;
+    --tex)     profile=tex;  shift ;;
+  esac
 
   local input="$1"
   local output="${2:-${input%.md}.pdf}"
   if [[ -z "$input" || ! -f "$input" ]]; then
-    echo "usage: md2pdf [--tech] <markdown-file> [out.pdf]" >&2
+    echo "usage: md2pdf [--tech|--tex] <markdown-file> [out.pdf]" >&2
     return 1
   fi
 
-  # Emoji path is shared by both profiles: Chrome renders color emoji, LaTeX can't.
+  # Emoji path is shared by all profiles: Chrome renders color emoji, LaTeX can't.
   if grep -qP '[\x{1F300}-\x{1F9FF}\x{2600}-\x{26FF}\x{2700}-\x{27BF}]' "$input" 2>/dev/null || \
      grep -q '[🚨📁📊🎯⚠️✅❌🔄📦🔐🔍📋💾📌⏳]' "$input"; then
     echo "Emojis detected - using HTML→PDF conversion..."
@@ -126,7 +131,28 @@ md2pdf() {
     return
   fi
 
-  # LaTeX path (xelatex). Common preamble shared by both profiles: code-block
+  # Technical profile -> Typst. Native, clean table layout; automatic font
+  # fallback means missing glyphs (arrows, symbols) render instead of becoming
+  # tofu boxes. No LaTeX preamble needed.
+  if [[ "$profile" == tech ]]; then
+    if ! command -v typst >/dev/null 2>&1; then
+      echo "typst not found - falling back to the LaTeX technical path (--tex)." >&2
+      profile=tex
+    else
+      # -citations: stop pandoc treating "@mention" as a citation key (Typst
+      # would emit #cite() and fail with no bibliography).
+      pandoc "$input" -o "$output" \
+        --from=markdown+hard_line_breaks-implicit_figures-citations \
+        --pdf-engine=typst \
+        -V mainfont="Charter" \
+        -V monofont="Menlo" \
+        -V fontsize=11pt \
+        && echo "Created (tech via typst): $output"
+      return
+    fi
+  fi
+
+  # LaTeX path (xelatex) for prose + tex profiles. Common preamble: code-block
   # wrapping, table-cell wrapping, and block-style #### / ##### headings.
   local headerfile
   headerfile=$(mktemp -t md2pdf-header.XXXXXX.tex)
@@ -155,10 +181,10 @@ md2pdf() {
 \titlespacing*{\subparagraph}{0pt}{12pt}{4pt}
 COMMONHEADER
 
-  if [[ "$profile" == tech ]]; then
+  if [[ "$profile" == tex ]]; then
     # Charter is a clean technical serif but lacks arrow glyphs (→ ← ↔ ⇒).
     # Map them to math-mode equivalents so they always render regardless of the
-    # body font. Scoped to the tech profile so the prose look is untouched.
+    # body font. Scoped to the tex profile so the prose look is untouched.
     cat >> "$headerfile" <<'TECHGLYPHS'
 \usepackage{newunicodechar}
 \newunicodechar{→}{\ensuremath{\rightarrow}}
@@ -170,7 +196,7 @@ TECHGLYPHS
     # Technical profile: Charter (macOS system serif) + Menlo mono. Denser,
     # readable for specs/tables/code. No centered/two-column filters.
     pandoc "$input" -o "$output" \
-      --from=markdown+hard_line_breaks-implicit_figures \
+      --from=markdown+hard_line_breaks-implicit_figures-citations \
       --pdf-engine=xelatex \
       --listings \
       -V geometry:margin=0.9in \
@@ -182,7 +208,7 @@ TECHGLYPHS
       -V linkcolor=Maroon \
       -V urlcolor=Maroon \
       -H "$headerfile" \
-      && echo "Created ($profile): $output"
+      && echo "Created (tex via xelatex): $output"
   else
     # Prose profile (default): Plus Jakarta Sans, unchanged. Uses the static TTFs
     # so fontspec maps Regular/Bold/Italic/BoldItalic by file.
