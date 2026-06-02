@@ -139,15 +139,33 @@ md2pdf() {
       echo "typst not found - falling back to the LaTeX technical path (--tex)." >&2
       profile=tex
     else
+      # Typst style header: auto-size table columns (via the lua filter below),
+      # shrink table text so wide tables fit, tighten cell padding, and keep
+      # tables left-aligned full width instead of centered.
+      local typsthdr
+      typsthdr=$(mktemp -t md2pdf-typst.XXXXXX.typ)
+      cat > "$typsthdr" <<'TYPSTHEADER'
+#set table(inset: 5pt, stroke: 0.5pt + luma(190))
+#show table: set text(size: 8.5pt)
+#show table: set par(justify: false)
+#show figure.where(kind: table): set align(left)
+// Pandoc wraps each table in a figure; figures don't page-break by default,
+// so a long table overflows the page bottom (rows overlap). Make them breakable.
+#show figure.where(kind: table): set block(breakable: true)
+TYPSTHEADER
       # -citations: stop pandoc treating "@mention" as a citation key (Typst
       # would emit #cite() and fail with no bibliography).
+      # typst-table-auto.lua: replace rigid % column widths with auto sizing.
       pandoc "$input" -o "$output" \
         --from=markdown+hard_line_breaks-implicit_figures-citations \
+        --lua-filter="$HOME/dotfiles/pandoc/filters/typst-table-auto.lua" \
         --pdf-engine=typst \
+        -H "$typsthdr" \
         -V mainfont="Charter" \
         -V monofont="Menlo" \
         -V fontsize=11pt \
         && echo "Created (tech via typst): $output"
+      rm -f "$typsthdr"
       return
     fi
   fi
