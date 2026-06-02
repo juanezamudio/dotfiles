@@ -94,25 +94,43 @@ mdcopy() {
 # === Document Tools ===
 
 # Convert markdown to PDF (auto-detects emojis)
+#
+# Profiles:
+#   md2pdf <file.md> [out.pdf]          prose profile (default) - Plus Jakarta Sans,
+#                                        the marketing/proposal look. Unchanged.
+#   md2pdf --tech <file.md> [out.pdf]   technical profile - Charter serif body +
+#                                        Menlo mono, denser, no centered/two-column
+#                                        filters. Better for dev briefs, specs, docs
+#                                        with lots of tables and code.
 md2pdf() {
+  local profile=prose
+  if [[ "$1" == "--tech" || "$1" == "-t" ]]; then
+    profile=tech; shift
+  fi
+
   local input="$1"
   local output="${2:-${input%.md}.pdf}"
+  if [[ -z "$input" || ! -f "$input" ]]; then
+    echo "usage: md2pdf [--tech] <markdown-file> [out.pdf]" >&2
+    return 1
+  fi
 
-  # Check if file contains emojis
+  # Emoji path is shared by both profiles: Chrome renders color emoji, LaTeX can't.
   if grep -qP '[\x{1F300}-\x{1F9FF}\x{2600}-\x{26FF}\x{2700}-\x{27BF}]' "$input" 2>/dev/null || \
      grep -q '[🚨📁📊🎯⚠️✅❌🔄📦🔐🔍📋💾📌⏳]' "$input"; then
-    # File has emojis - use HTML→PDF path (Chrome handles emojis)
     echo "Emojis detected - using HTML→PDF conversion..."
     local temphtml="${input%.md}.temp.html"
     md2html "$input" "$temphtml" && \
     html2pdf "$temphtml" "$output" && \
     rm -f "$temphtml"
-  else
-    # No emojis - use LaTeX path (better typography)
-    # xelatex handles Unicode robustly; listings package wraps long code lines
-    local headerfile
-    headerfile=$(mktemp -t md2pdf-header.XXXXXX.tex)
-    cat > "$headerfile" <<'LATEXHEADER'
+    return
+  fi
+
+  # LaTeX path (xelatex). Common preamble shared by both profiles: code-block
+  # wrapping, table-cell wrapping, and block-style #### / ##### headings.
+  local headerfile
+  headerfile=$(mktemp -t md2pdf-header.XXXXXX.tex)
+  cat > "$headerfile" <<'COMMONHEADER'
 \lstset{
   breaklines=true,
   breakatwhitespace=false,
@@ -127,38 +145,87 @@ md2pdf() {
   belowskip=12pt,
   postbreak=\mbox{\hspace{2em}}
 }
-% Make table cells wrap when content is long
 \usepackage{array}
 \usepackage{ragged2e}
 \renewcommand{\arraystretch}{1.15}
-% Make level-4 (####) and level-5 (#####) markdown headings render as
-% block headings instead of LaTeX's default run-in \paragraph / \subparagraph.
 \usepackage{titlesec}
 \titleformat{\paragraph}[block]{\normalfont\normalsize\bfseries}{}{0pt}{}
 \titlespacing*{\paragraph}{0pt}{14pt}{6pt}
 \titleformat{\subparagraph}[block]{\normalfont\normalsize\bfseries}{}{0pt}{}
 \titlespacing*{\subparagraph}{0pt}{12pt}{4pt}
-LATEXHEADER
+COMMONHEADER
+
+  if [[ "$profile" == tech ]]; then
+    # Charter is a clean technical serif but lacks arrow glyphs (→ ← ↔ ⇒).
+    # Map them to math-mode equivalents so they always render regardless of the
+    # body font. Scoped to the tech profile so the prose look is untouched.
+    cat >> "$headerfile" <<'TECHGLYPHS'
+\usepackage{newunicodechar}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+\newunicodechar{⇐}{\ensuremath{\Leftarrow}}
+TECHGLYPHS
+    # Technical profile: Charter (macOS system serif) + Menlo mono. Denser,
+    # readable for specs/tables/code. No centered/two-column filters.
     pandoc "$input" -o "$output" \
+      --from=markdown+hard_line_breaks-implicit_figures \
+      --pdf-engine=xelatex \
+      --listings \
+      -V geometry:margin=0.9in \
+      -V fontsize=11pt \
+      -V linestretch=1.15 \
+      -V mainfont="Charter" \
+      -V monofont="Menlo" \
+      -V colorlinks=true \
+      -V linkcolor=Maroon \
+      -V urlcolor=Maroon \
+      -H "$headerfile" \
+      && echo "Created ($profile): $output"
+  else
+    # Prose profile (default): Plus Jakarta Sans, unchanged. Uses the static TTFs
+    # so fontspec maps Regular/Bold/Italic/BoldItalic by file.
+    cat >> "$headerfile" <<'PROSEFONT'
+\setmainfont{Plus Jakarta Sans}[
+  Path           = /Users/jzamudio/Library/Fonts/,
+  Extension      = .ttf,
+  UprightFont    = PlusJakartaSans-Regular,
+  BoldFont       = PlusJakartaSans-Bold,
+  ItalicFont     = PlusJakartaSans-Italic,
+  BoldItalicFont = PlusJakartaSans-BoldItalic
+]
+PROSEFONT
+    pandoc "$input" -o "$output" \
+      --from=markdown+hard_line_breaks-implicit_figures \
+      --lua-filter="$HOME/dotfiles/pandoc/filters/centered.lua" \
+      --lua-filter="$HOME/dotfiles/pandoc/filters/two-column.lua" \
       --pdf-engine=xelatex \
       --listings \
       -V geometry:margin=0.75in \
       -V fontsize=11pt \
+      -V mainfont="Plus Jakarta Sans" \
+      -V sansfont="Plus Jakarta Sans" \
       -V monofont="Menlo" \
       -V colorlinks=true \
       -V linkcolor=blue \
       -V urlcolor=blue \
       -H "$headerfile" \
-      && echo "Created: $output"
-    rm -f "$headerfile"
+      && echo "Created ($profile): $output"
   fi
+  rm -f "$headerfile"
 }
 
 # Convert markdown to Word doc (for Google Docs import)
 md2docx() {
   local input="$1"
   local output="${2:-${input%.md}.docx}"
-  pandoc "$input" -o "$output" && echo "Created: $output"
+  pandoc "$input" -o "$output" \
+    --from=markdown+hard_line_breaks-implicit_figures \
+    --lua-filter="$HOME/dotfiles/pandoc/filters/centered.lua" \
+    --lua-filter="$HOME/dotfiles/pandoc/filters/two-column.lua" \
+    --reference-doc="$HOME/dotfiles/pandoc/reference-jakarta.docx" \
+    && echo "Created: $output"
 }
 
 # Convert Word doc to PDF (via LibreOffice headless)
@@ -177,17 +244,21 @@ md2html() {
   local input="$1"
   local output="${2:-${input%.md}.html}"
   pandoc "$input" -o "$output" \
+    --from=markdown+hard_line_breaks-implicit_figures \
+    --lua-filter="$HOME/dotfiles/pandoc/filters/centered.lua" \
+    --lua-filter="$HOME/dotfiles/pandoc/filters/two-column.lua" \
     --standalone \
     --metadata title="$(basename "${input%.md}")" \
     -H <(cat << 'STYLE'
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-body { font-family: -apple-system, sans-serif; font-size: 12pt; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
-pre, code { white-space: pre-wrap; word-wrap: break-word; background: #f5f5f5; padding: 16px; border-radius: 4px; line-height: 1.5; display: block; }
+body { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; font-size: 12pt; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+pre, code { font-family: 'Menlo', monospace; white-space: pre-wrap; word-wrap: break-word; background: #f5f5f5; padding: 16px; border-radius: 4px; line-height: 1.5; display: block; }
 pre code { padding: 0; }
 table { border-collapse: collapse; width: 100%; margin: 1em 0; }
 td, th { border: 1px solid #ddd; padding: 8px; text-align: left; }
 th { background: #f5f5f5; }
-h1, h2, h3 { color: #333; }
+h1, h2, h3 { font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; color: #333; font-weight: 700; }
 h2 { border-bottom: 1px solid #eee; padding-bottom: 8px; }
 </style>
 STYLE
