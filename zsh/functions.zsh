@@ -93,19 +93,13 @@ mdcopy() {
 
 # === Document Tools ===
 
-# Convert markdown to PDF (auto-detects emojis)
-#
-# Profiles:
-#   md2pdf <file.md> [out.pdf]          prose profile (default) - LaTeX/xelatex,
-#                                        Plus Jakarta Sans. The marketing/proposal
-#                                        look. Unchanged.
-#   md2pdf --tech <file.md> [out.pdf]   technical profile - Typst engine. Far better
-#                                        table layout + automatic glyph fallback
-#                                        (arrows etc. just work). Best for dev briefs,
-#                                        specs, anything table/code heavy.
-#   md2pdf --tex  <file.md> [out.pdf]   the old LaTeX technical path (Charter serif +
-#                                        Menlo). Kept as a fallback if Typst output
-#                                        ever isn't what you want.
+# Profiles / usage:
+#   md2pdf <file.md> [out.pdf]          prose (default) - LaTeX/xelatex, Plus Jakarta Sans
+#   md2pdf --tech <file.md> [out.pdf]   technical - Typst engine (best tables + links)
+#   md2pdf --tex  <file.md> [out.pdf]   technical - LaTeX/Charter fallback
+# (Emoji docs auto-route through the HTML->PDF path.)
+# NOTE for myhelp: the single line directly below is the menu description - keep it last.
+# Convert markdown to PDF (default prose; --tech Typst; --tex LaTeX)
 md2pdf() {
   local profile=prose
   case "$1" in
