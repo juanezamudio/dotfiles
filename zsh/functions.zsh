@@ -114,9 +114,12 @@ md2pdf() {
     return 1
   fi
 
-  # Emoji path is shared by all profiles: Chrome renders color emoji, LaTeX can't.
-  if grep -qP '[\x{1F300}-\x{1F9FF}\x{2600}-\x{26FF}\x{2700}-\x{27BF}]' "$input" 2>/dev/null || \
-     grep -q '[🚨📁📊🎯⚠️✅❌🔄📦🔐🔍📋💾📌⏳]' "$input"; then
+  # Emoji auto-routing: Chrome renders color emoji, xelatex can't. Typst (--tech)
+  # CAN render emoji via font fallback, so only auto-route prose/--tex to HTML —
+  # an explicit --tech keeps the polished Typst look (tables/links/fonts).
+  if [[ "$profile" != tech ]] && \
+     { grep -qP '[\x{1F300}-\x{1F9FF}\x{2600}-\x{26FF}\x{2700}-\x{27BF}]' "$input" 2>/dev/null || \
+       grep -q '[🚨📁📊🎯⚠️✅❌🔄📦🔐🔍📋💾📌⏳]' "$input"; }; then
     echo "Emojis detected - using HTML→PDF conversion..."
     local temphtml="${input%.md}.temp.html"
     md2html "$input" "$temphtml" && \
