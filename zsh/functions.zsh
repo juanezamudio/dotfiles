@@ -344,6 +344,33 @@ gdupload() {
   rclone copy "$(pwd)" "$remote:/$dest" --include "$pattern" && echo "Uploaded to $remote:/$dest (pattern: $pattern)"
 }
 
+# Refresh the MMP AWS SSO login (browser). Run when `ssh mmp` fails with an
+# auth/SSO-token error. Uses the least-privilege EC2SSMOperator profile.
+mmp-login() {
+  aws sso login --profile mymarketingpro-ssm && \
+    echo "✓ MMP SSO refreshed — 'ssh mmp' and 'scp … mmp:' will work now."
+}
+
+# Show who you are on AWS + whether the MMP app server is reachable via SSM.
+# Quick health check when something's off with the connection.
+mmp-whoami() {
+  echo "AWS identity:"; aws sts get-caller-identity --profile mymarketingpro-ssm --output table 2>&1 | grep -E "Arn|Account" || echo "  (not logged in — run mmp-login)"
+  echo "App server (SSM):"; aws ssm describe-instance-information --profile mymarketingpro-ssm \
+    --filters "Key=InstanceIds,Values=i-03467e9ad7ef3cff3" \
+    --query "InstanceInformationList[0].{Instance:InstanceId,Ping:PingStatus,Platform:PlatformName}" --output table 2>&1 | grep -E "Instance|Ping|Ubuntu|Online|i-" || echo "  (unreachable — run mmp-login)"
+}
+
+# Open an admin AWS shell session (AdministratorAccess profile) for infra work.
+# Only use when you need to change AWS itself — day-to-day server access is just
+# `ssh mmp`, which needs no profile. Runs a subshell so the admin profile does
+# NOT leak into your other terminals.
+mmp-admin() {
+  echo "Starting AdministratorAccess subshell (type 'exit' to leave)…"
+  AWS_PROFILE=mymarketingpro AWS_REGION=us-east-2 AWS_DEFAULT_REGION=us-east-2 \
+    aws sso login --profile mymarketingpro && \
+  AWS_PROFILE=mymarketingpro AWS_REGION=us-east-2 AWS_DEFAULT_REGION=us-east-2 zsh
+}
+
 # === Claude ===
 
 # Browse, preview, resume, or bulk-delete Claude sessions in the current project
