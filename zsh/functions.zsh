@@ -327,6 +327,18 @@ pdf2text() {
   pdftotext "$input" "$output" && echo "Created: $output"
 }
 
+# Convert PNG to PDF (sips is built-in; page size honors the PNG's DPI)
+#   png2pdf sign.png [out.pdf]   one file
+#   png2pdf *.png                each -> its own .pdf
+png2pdf() {
+  if [ "$#" -gt 1 ] && [[ "$2" == *.png ]]; then
+    for f in "$@"; do png2pdf "$f"; done; return
+  fi
+  local input="$1"
+  local output="${2:-${input%.png}.pdf}"
+  sips -s format pdf "$input" --out "$output" >/dev/null 2>&1 && echo "Created: $output"
+}
+
 # === Cloud ===
 
 # Upload files to Google Drive via rclone (e.g., gdupload vertexcollective docs "*.pdf")

@@ -21,6 +21,7 @@ My personal shell configuration.
 | `gdupload` | Upload files from cwd to Google Drive via rclone |
 | `md2html` | Convert markdown to styled HTML |
 | `html2pdf` | Convert HTML to PDF (via Chrome) |
+| `png2pdf` | Convert PNG(s) to PDF, `png2pdf *.png` batches (via sips) |
 | `pdf2text` | Extract text from PDF |
 
 ## Installation
